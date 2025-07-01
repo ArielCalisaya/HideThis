@@ -1,47 +1,86 @@
-# Astro Starter Kit: Minimal
+# HideThis 🕵️‍♂️
 
-```sh
-deno create astro@latest -- --template minimal
+A modern browser extension to elegantly and efficiently hide web elements.
+
+## ✨ Features
+
+- 🎯 **Visual selector**: Select elements with a single click
+- 👁️ **Smart hiding**: Hide elements without breaking layout
+- 💾 **Persistence**: Save your configurations between sessions
+- 🎨 **Modern interface**: Clean and responsive design with Tailwind CSS
+- ⚡ **Optimized performance**: Built with Astro and Deno
+
+## 🚀 Installation
+
+### Prerequisites
+- [Deno](https://deno.land/) (version 1.40 or higher)
+
+### Local development
+
+```bash
+# Clone the repository
+git clone https://github.com/[your-username]/HideThis.git
+cd HideThis
+
+# Install dependencies
+deno install
+
+# Run development server
+deno task dev
 ```
 
-[![Open in StackBlitz](https://developer.stackblitz.com/img/open_in_stackblitz.svg)](https://stackblitz.com/github/withastro/astro/tree/latest/examples/minimal)
-[![Open with CodeSandbox](https://assets.codesandbox.io/github/button-edit-lime.svg)](https://codesandbox.io/p/sandbox/github/withastro/astro/tree/latest/examples/minimal)
-[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/withastro/astro?devcontainer_path=.devcontainer/minimal/devcontainer.json)
+The server will be available at `http://localhost:4321`
 
-> 🧑‍🚀 **Seasoned astronaut?** Delete this file. Have fun!
+## 🛠️ Technologies
 
-## 🚀 Project Structure
+- **Framework**: [Astro](https://astro.build/) - Modern web framework
+- **Runtime**: [Deno](https://deno.land/) - Secure JavaScript/TypeScript runtime
+- **Styling**: [Tailwind CSS](https://tailwindcss.com/) - Utility-first CSS framework
+- **Language**: TypeScript
 
-Inside of your Astro project, you'll see the following folders and files:
+## 📁 Project Structure
 
-```text
-/
-├── public/
+```
+HideThis/
 ├── src/
-│   └── pages/
-│       └── index.astro
-└── package.json
+│   ├── pages/
+│   │   └── index.astro          # Main page
+│   └── styles/
+│       └── global.css           # Global styles with Tailwind
+├── public/                      # Static files
+├── astro.config.mjs            # Astro configuration
+├── tailwind.config.mjs         # Tailwind configuration
+└── package.json                # Project dependencies
 ```
 
-Astro looks for `.astro` or `.md` files in the `src/pages/` directory. Each page is exposed as a route based on its file name.
+## 🎯 Roadmap
 
-There's nothing special about `src/components/`, but that's where we like to put any Astro/React/Vue/Svelte/Preact components.
+- [ ] Chrome/Firefox extension
+- [ ] Advanced element selector
+- [ ] Customizable themes
+- [ ] Export/import configurations
+- [ ] Dark/light mode
 
-Any static assets, like images, can be placed in the `public/` directory.
+## 🤝 Contributing
 
-## 🧞 Commands
+Contributions are welcome! Please:
 
-All commands are run from the root of the project, from a terminal:
+1. Fork the project
+2. Create a feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
 
-| Command                   | Action                                           |
-| :------------------------ | :----------------------------------------------- |
-| `deno install`             | Installs dependencies                            |
-| `deno dev`             | Starts local dev server at `localhost:4321`      |
-| `deno build`           | Build your production site to `./dist/`          |
-| `deno preview`         | Preview your build locally, before deploying     |
-| `deno astro ...`       | Run CLI commands like `astro add`, `astro check` |
-| `deno astro -- --help` | Get help using the Astro CLI                     |
+## 📄 License
 
-## 👀 Want to learn more?
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-Feel free to check [our documentation](https://docs.astro.build) or jump into our [Discord server](https://astro.build/chat).
+## 🙏 Acknowledgments
+
+- [Astro](https://astro.build/) for the amazing framework
+- [Tailwind CSS](https://tailwindcss.com/) for the design system
+- [Deno](https://deno.land/) for the modern runtime
+
+---
+
+**Built with ❤️ to make the web cleaner**
