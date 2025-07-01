@@ -75,11 +75,11 @@ Contributions are welcome! Please:
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## 🙏 Acknowledgments
+## 🛠️ Built With
 
-- [Astro](https://astro.build/) for the amazing framework
-- [Tailwind CSS](https://tailwindcss.com/) for the design system
-- [Deno](https://deno.land/) for the modern runtime
+- [Astro](https://astro.build/) - Modern web framework
+- [Tailwind CSS](https://tailwindcss.com/) - Utility-first CSS framework  
+- [Deno](https://deno.land/) - Secure JavaScript/TypeScript runtime
 
 ---
 
