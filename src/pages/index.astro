@@ -1,5 +1,5 @@
 ---
-
+import '../styles/global.css';
 ---
 
 <html lang="en">
@@ -8,9 +8,70 @@
 		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 		<meta name="viewport" content="width=device-width" />
 		<meta name="generator" content={Astro.generator} />
-		<title>Astro</title>
+		<title>HideThis - Browser Extension to Hide Elements</title>
 	</head>
-	<body>
-		<h1>Astro</h1>
+	<body class="bg-gray-50 min-h-screen">
+		<div class="container mx-auto px-4 py-8">
+			<header class="text-center mb-8">
+				<h1 class="text-4xl font-bold text-gray-900 mb-2">HideThis</h1>
+				<p class="text-lg text-gray-600">Browser extension to hide elements elegantly</p>
+			</header>
+			
+			<main class="max-w-2xl mx-auto">
+				<div class="bg-white rounded-lg shadow-md p-6">
+					<h2 class="text-2xl font-semibold text-gray-800 mb-4">Control Panel</h2>
+					
+					<div class="space-y-4">
+						<div class="flex items-center justify-between">
+							<span class="text-gray-700">Selection mode:</span>
+							<button class="btn-primary">
+								Activate Selector
+							</button>
+						</div>
+						
+						<div class="flex items-center justify-between">
+							<span class="text-gray-700">Hidden elements:</span>
+							<span class="bg-primary-100 text-primary-800 px-3 py-1 rounded-full text-sm font-medium">
+								0 elements
+							</span>
+						</div>
+						
+						<div class="border-t pt-4">
+							<button class="btn-secondary w-full">
+								Show/Hide Elements
+							</button>
+						</div>
+						
+						<div class="border-t pt-4">
+							<button class="bg-red-600 hover:bg-red-700 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200 w-full">
+								Clear All
+							</button>
+						</div>
+					</div>
+				</div>
+				
+				<div class="mt-6 bg-white rounded-lg shadow-md p-6">
+					<h3 class="text-xl font-semibold text-gray-800 mb-3">Instructions</h3>
+					<ul class="text-gray-600 space-y-2">
+						<li class="flex items-start">
+							<span class="text-primary-600 mr-2">•</span>
+							Click "Activate Selector" to start selecting elements
+						</li>
+						<li class="flex items-start">
+							<span class="text-primary-600 mr-2">•</span>
+							Click on any page element to hide it
+						</li>
+						<li class="flex items-start">
+							<span class="text-primary-600 mr-2">•</span>
+							Use "Show/Hide Elements" to toggle visibility
+						</li>
+						<li class="flex items-start">
+							<span class="text-primary-600 mr-2">•</span>
+							"Clear All" restores all hidden elements
+						</li>
+					</ul>
+				</div>
+			</main>
+		</div>
 	</body>
 </html>
