@@ -1,0 +1,31 @@
+{
+  "manifest_version": 3,
+  "name": "HideThis",
+  "version": "1.1.0",
+  "description": "Browser extension to hide elements elegantly",
+  "permissions": [
+    "activeTab",
+    "storage",
+    "tabs"
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "HideThis"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>", "http://localhost:*/*", "https://localhost:*/*"],
+      "js": ["scripts/selector.js"],
+      "run_at": "document_end",
+      "all_frames": false
+    }
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "icons": {
+    "16": "public/favicon.svg",
+    "48": "public/favicon.svg",
+    "128": "public/favicon.svg"
+  }
+} 

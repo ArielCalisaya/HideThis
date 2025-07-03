@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HideThis</title>
+    <link rel="stylesheet" href="popup.css">
+</head>
+<body class="bg-gray-50 min-h-screen w-80">
+    <div class="container mx-auto px-4 py-6">
+        <header class="text-center mb-6">
+            <h1 class="text-3xl font-bold text-gray-900 mb-2">HideThis</h1>
+            <p class="text-sm text-gray-600">Oculta elementos de forma elegante</p>
+        </header>
+        
+        <main class="max-w-full">
+            <div class="bg-white rounded-lg shadow-md p-4 mb-4">
+                <h2 class="text-xl font-semibold text-gray-800 mb-3">Panel de Control</h2>
+                
+                <div class="space-y-3">
+                    <div class="flex items-center justify-between">
+                        <span class="text-gray-700 text-sm">Modo selección:</span>
+                        <button id="toggleSelector" class="btn-primary text-sm">
+                            Activar Selector
+                        </button>
+                    </div>
+                    
+                    <div class="flex items-center justify-between">
+                        <span class="text-gray-700 text-sm">Elementos ocultos:</span>
+                        <span id="hiddenCount" class="bg-primary-100 text-primary-800 px-2 py-1 rounded-full text-xs font-medium">
+                            0 elementos
+                        </span>
+                    </div>
+                    
+                    <div class="border-t pt-3">
+                        <button id="toggleVisibility" class="btn-secondary w-full text-sm">
+                            Mostrar/Ocultar Elementos
+                        </button>
+                    </div>
+                    
+                    <div class="border-t pt-3">
+                        <button id="clearAll" class="bg-red-600 hover:bg-red-700 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200 w-full text-sm">
+                            Limpiar Todo
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="bg-white rounded-lg shadow-md p-4">
+                <h3 class="text-lg font-semibold text-gray-800 mb-2">Instrucciones</h3>
+                <ul class="text-gray-600 space-y-1 text-xs">
+                    <li class="flex items-start">
+                        <span class="text-primary-600 mr-2">•</span>
+                        Click en "Activar Selector" para empezar
+                    </li>
+                    <li class="flex items-start">
+                        <span class="text-primary-600 mr-2">•</span>
+                        Click en cualquier elemento para ocultarlo
+                    </li>
+                    <li class="flex items-start">
+                        <span class="text-primary-600 mr-2">•</span>
+                        Usa "Mostrar/Ocultar" para alternar visibilidad
+                    </li>
+                    <li class="flex items-start">
+                        <span class="text-primary-600 mr-2">•</span>
+                        "Limpiar Todo" restaura todos los elementos
+                    </li>
+                </ul>
+            </div>
+        </main>
+    </div>
+
+    <script src="popup.js"></script>
+</body>
+</html> 
