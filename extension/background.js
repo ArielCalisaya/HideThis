@@ -18,14 +18,12 @@ class BackgroundMessageController {
       'elementsCleared',
       'contentScriptLoaded',
       'contentScriptReady',
-      'invalidateCSS',
-      'clearInvalidatedCSS',
-      'getInvalidatedCount',
-      'updateInvalidatedCount',
       'getHiddenElementsList',
-      'getInvalidatedCSSList',
       'removeHiddenElement',
-      'removeInvalidatedSelector'
+      'removeElements',
+      'removeBlurFilter',
+      'clearRemovedElements',
+      'getRemovedElementsCount'
     ];
     
     this.setupMessageListener();
@@ -71,38 +69,48 @@ class BackgroundMessageController {
    */
   handleMessage(request, sender, sendResponse) {
     const { action } = request;
+    console.log(`🔍 Background handleMessage called with action: "${action}"`);
 
     // Connection verification messages
     if (action === 'ping' || action === 'test') {
+      console.log(`🔍 Handling connection test: ${action}`);
       return this.handleConnectionTest(action, sendResponse);
     }
 
     // Selector control messages
     if (['toggleSelector', 'getSelectorState', 'toggleVisibility', 'clearAll', 'getHiddenCount'].includes(action)) {
+      console.log(`🔍 Handling content script command: ${action}`);
       return this.handleContentScriptCommand(action, request, sendResponse);
     }
 
-    // CSS invalidation messages
-    if (['invalidateCSS', 'clearInvalidatedCSS', 'getInvalidatedCount'].includes(action)) {
-      return this.handleCSSInvalidationCommand(action, request, sendResponse);
-    }
-
     // List management messages
-    if (['getHiddenElementsList', 'getInvalidatedCSSList', 'removeHiddenElement', 'removeInvalidatedSelector'].includes(action)) {
+    if (['getHiddenElementsList', 'removeHiddenElement', 'removeElements'].includes(action)) {
+      console.log(`🔍 Handling list management command: ${action}`);
       return this.handleListManagementCommand(action, request, sendResponse);
     }
 
+    // Class removal messages
+    const classRemovalActions = ['removeBlurFilter', 'clearRemovedElements', 'getRemovedElementsCount'];
+    console.log(`🔍 Checking if "${action}" is in class removal actions:`, classRemovalActions);
+    if (classRemovalActions.includes(action)) {
+      console.log(`🔍 YES - Handling class removal command: ${action}`);
+      return this.handleClassRemovalCommand(action, request, sendResponse);
+    }
+
     // Content script notification messages
-    if (['elementHidden', 'elementsCleared', 'updateInvalidatedCount'].includes(action)) {
+    if (['elementHidden', 'elementsCleared'].includes(action)) {
+      console.log(`🔍 Handling content script notification: ${action}`);
       return this.handleContentScriptNotification(action, request);
     }
 
     // Content script status messages
     if (['contentScriptLoaded', 'contentScriptReady'].includes(action)) {
+      console.log(`🔍 Handling content script status: ${action}`);
       return this.handleContentScriptStatus(action, request);
     }
 
     // Unrecognized action
+    console.log(`❌ Unrecognized action: ${action}`);
     sendResponse({ 
       success: false, 
       error: `Unrecognized action: ${action}` 
@@ -158,28 +166,6 @@ class BackgroundMessageController {
   }
 
   /**
-   * Handles CSS invalidation commands
-   * @param {string} action - CSS invalidation action
-   * @param {Object} request - Complete message
-   * @param {Function} sendResponse - Response function
-   * @returns {boolean} True for async response
-   */
-  handleCSSInvalidationCommand(action, request, sendResponse) {
-    this.forwardToActiveTab(action, request, (response, error) => {
-      if (error) {
-        sendResponse({ 
-          success: false, 
-          error: error.message,
-          action: action
-        });
-      } else {
-        sendResponse(response || { success: true });
-      }
-    });
-    return true;
-  }
-
-  /**
    * Handles list management commands
    * @param {string} action - List management action
    * @param {Object} request - Complete message
@@ -205,6 +191,41 @@ class BackgroundMessageController {
   }
 
   /**
+   * Handles class removal commands
+   * @param {string} action - Class removal action
+   * @param {Object} request - Complete message
+   * @param {Function} sendResponse - Response function
+   * @returns {boolean} True for async response
+   */
+  handleClassRemovalCommand(action, request, sendResponse) {
+    console.log(`🔄 Background forwarding class removal command: ${action}`);
+    console.log(`📦 Request data:`, { action, className: request.className });
+    
+    this.forwardToActiveTab(action, request, (response, error) => {
+      if (error) {
+        console.error(`❌ Background class removal command error for ${action}:`, error);
+        console.error(`📋 Error details:`, {
+          message: error.message,
+          stack: error.stack,
+          action: action,
+          className: request.className
+        });
+        
+        sendResponse({ 
+          success: false, 
+          error: error.message,
+          action: action,
+          details: 'Background script could not communicate with content script'
+        });
+      } else {
+        console.log(`✅ Background class removal command success for ${action}:`, response);
+        sendResponse(response || { success: true });
+      }
+    });
+    return true;
+  }
+
+  /**
    * Handles content script notifications
    * @param {string} action - Notification type
    * @param {Object} request - Notification data
@@ -213,19 +234,11 @@ class BackgroundMessageController {
   handleContentScriptNotification(action, request) {
     // Forward notification to popup if open
     try {
-      if (action === 'updateInvalidatedCount') {
-        chrome.runtime.sendMessage({
-          action: 'updateInvalidatedCount',
-          count: request.count || 0,
-          source: action
-        });
-      } else {
-        chrome.runtime.sendMessage({
-          action: 'updateCount',
-          count: request.count || 0,
-          source: action
-        });
-      }
+      chrome.runtime.sendMessage({
+        action: 'updateCount',
+        count: request.count || 0,
+        source: action
+      });
     } catch (error) {
       // Popup might not be open, this is normal
       console.log(`Info: Could not notify popup: ${error.message}`);
@@ -259,24 +272,38 @@ class BackgroundMessageController {
    * @param {Function} callback - Callback with (response, error)
    */
   forwardToActiveTab(action, data, callback) {
+    console.log(`📤 Forwarding to active tab:`, { action, data });
+    
     this.getActiveTab((tab, error) => {
       if (error) {
+        console.error(`❌ Failed to get active tab:`, error);
         callback(null, error);
         return;
       }
 
+      console.log(`📋 Active tab found:`, { id: tab.id, url: tab.url });
+
       try {
         const message = { action, ...data };
+        console.log(`📨 Sending message to tab ${tab.id}:`, message);
         
         chrome.tabs.sendMessage(tab.id, message, (response) => {
           if (chrome.runtime.lastError) {
             const error = new Error(chrome.runtime.lastError.message);
+            console.error(`❌ Chrome runtime error:`, {
+              message: chrome.runtime.lastError.message,
+              tabId: tab.id,
+              tabUrl: tab.url,
+              action: action
+            });
             callback(null, error);
           } else {
+            console.log(`✅ Message sent successfully, response:`, response);
             callback(response, null);
           }
         });
       } catch (error) {
+        console.error(`❌ Exception in forwardToActiveTab:`, error);
         callback(null, error);
       }
     });
