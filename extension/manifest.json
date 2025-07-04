@@ -20,7 +20,7 @@
         "utils/error-handler.js", 
         "utils/message-handler.js",
         "utils/storage-manager.js",
-        "components/css-invalidator.js",
+        "components/dom-attrs-remover.js",
         "scripts/selector.js"
       ],
       "run_at": "document_end",
@@ -32,7 +32,7 @@
   },
   "web_accessible_resources": [
     {
-      "resources": ["components/css-invalidator.js"],
+      "resources": ["components/dom-attrs-remover.js"],
       "matches": ["<all_urls>"]
     }
   ],
