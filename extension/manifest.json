@@ -15,7 +15,14 @@
   "content_scripts": [
     {
       "matches": ["<all_urls>", "http://localhost:*/*", "https://localhost:*/*"],
-      "js": ["scripts/selector.js"],
+      "js": [
+        "utils/constants.js",
+        "utils/error-handler.js", 
+        "utils/message-handler.js",
+        "utils/storage-manager.js",
+        "components/css-invalidator.js",
+        "scripts/selector.js"
+      ],
       "run_at": "document_end",
       "all_frames": false
     }
@@ -23,6 +30,12 @@
   "background": {
     "service_worker": "background.js"
   },
+  "web_accessible_resources": [
+    {
+      "resources": ["components/css-invalidator.js"],
+      "matches": ["<all_urls>"]
+    }
+  ],
   "icons": {
     "16": "public/favicon.svg",
     "48": "public/favicon.svg",
