@@ -6,7 +6,7 @@ class PopupController {
     this.uiElements = {};
     this.messageCleanup = null;
     this.currentListType = null;
-    this.init();
+    // Don't call init() here - will be called externally with await
   }
 
   /**
@@ -14,12 +14,25 @@ class PopupController {
    */
   async init() {
     try {
+      console.log('🔧 Initializing PopupController...');
       this.initializeUIElements();
+      console.log('✅ UI elements initialized');
+      
       this.setupEventListeners();
+      console.log('✅ Event listeners setup');
+      
       this.setupMessageListener();
+      console.log('✅ Message listener setup');
+      
       await this.loadInitialState();
+      console.log('✅ Initial state loaded');
+      
+      console.log('🚀 PopupController initialization complete');
     } catch (error) {
-      ErrorHandler.handle(error, 'Error initializing popup');
+      console.error('💥 Error in PopupController.init():', error);
+      console.error('Stack trace:', error.stack);
+      ErrorHandler.logError(error, 'Error initializing popup');
+      throw error; // Re-throw so the calling code can handle it
     }
   }
 
@@ -32,10 +45,6 @@ class PopupController {
     this.uiElements.hiddenCount = this.getRequiredElement('#hiddenCount');
     this.uiElements.toggleVisibility = this.getRequiredElement('#toggleVisibility');
     this.uiElements.clearAll = this.getRequiredElement('#clearAll');
-    this.uiElements.cssSelector = this.getRequiredElement('#cssSelector');
-    this.uiElements.invalidateCSS = this.getRequiredElement('#invalidateCSS');
-    this.uiElements.invalidatedCount = this.getRequiredElement('#invalidatedCount');
-    this.uiElements.clearInvalidatedCSS = this.getRequiredElement('#clearInvalidatedCSS');
     
     // View elements
     this.uiElements.mainView = this.getRequiredElement('#mainView');
@@ -67,35 +76,78 @@ class PopupController {
     this.uiElements.hiddenCount.addEventListener('click', () => this.showHiddenElementsList());
     this.uiElements.toggleVisibility.addEventListener('click', () => this.handleToggleVisibility());
     this.uiElements.clearAll.addEventListener('click', () => this.handleClearAll());
-    this.uiElements.invalidateCSS.addEventListener('click', () => this.handleInvalidateCSS());
-    this.uiElements.invalidatedCount.addEventListener('click', () => this.showInvalidatedCSSList());
-    this.uiElements.clearInvalidatedCSS.addEventListener('click', () => this.handleClearInvalidatedCSS());
     
     // List view buttons
     this.uiElements.backToMain.addEventListener('click', async () => await this.showMainView());
     this.uiElements.clearAllList.addEventListener('click', () => this.handleClearAllFromList());
     
-    // CSS selector input
-    this.uiElements.cssSelector.addEventListener('keypress', (event) => {
-      if (event.key === 'Enter') {
-        this.handleInvalidateCSS();
-      }
-    });
+
+
+    // Element removal event listeners
+    this.setupElementRemovalListeners();
+    
+    console.log('✅ All event listeners set up successfully');
+  }
+
+  /**
+   * Setup element removal event listeners
+   */
+  setupElementRemovalListeners() {
+    const removeElementsBtn = document.getElementById('removeElements');
+    const removeBlurBtn = document.getElementById('removeBlurFilter');
+    const clearRemovedElementsBtn = document.getElementById('clearRemovedElements');
+    const removedElementsCountBtn = document.getElementById('removedElementsCount');
+    const selectorInput = document.getElementById('selectorToRemove');
+
+    if (removeElementsBtn) {
+      removeElementsBtn.addEventListener('click', async () => {
+        console.log('🎯 Remove elements button clicked');
+        await this.handleRemoveElements();
+      });
+    }
+
+    if (removeBlurBtn) {
+      removeBlurBtn.addEventListener('click', async () => {
+        console.log('🌀 Remove blur filter button clicked');
+        await this.handleRemoveBlurFilter();
+      });
+    }
+
+    if (clearRemovedElementsBtn) {
+      clearRemovedElementsBtn.addEventListener('click', async () => {
+        console.log('🧹 Clear removed elements button clicked');
+        await this.handleClearRemovedElements();
+      });
+    }
+
+    if (removedElementsCountBtn) {
+      removedElementsCountBtn.addEventListener('click', () => {
+        console.log('📊 Show removed elements list (future feature)');
+        // TODO: Show list of removed elements
+      });
+    }
+
+    // Allow Enter key in selector input
+    if (selectorInput) {
+      selectorInput.addEventListener('keypress', async (e) => {
+        if (e.key === 'Enter') {
+          await this.handleRemoveElements();
+        }
+      });
+    }
   }
 
   /**
    * Setup message listener for background script communication
    */
   setupMessageListener() {
-    this.messageCleanup = MessageHandler.addListener((message) => {
+    this.messageCleanup = MessageHandler.setupMessageListener((message) => {
       if (message.type === 'selectorModeChanged') {
         this.updateSelectorButtonState();
       } else if (message.action === 'updateCount') {
         console.log('🔄 Received count update:', message);
         this.updateHiddenElementsCount(message.count);
-      } else if (message.action === 'updateInvalidatedCount') {
-        console.log('🔄 Received invalidated count update:', message);
-        this.updateInvalidatedCSSCount(message.count);
+        this.updateCounts(); // Update all counts
       }
     });
   }
@@ -111,7 +163,7 @@ class PopupController {
       
       if (response?.success) {
         this.updateHiddenElementsCount(response.count);
-        this.updateInvalidatedCSSCount(response.invalidatedCount || 0);
+        await this.updateCounts(); // Update all counts
         this.updateSelectorButtonState();
         console.log('✅ Initial state loaded successfully');
       } else {
@@ -150,60 +202,44 @@ class PopupController {
     }
   }
 
+
+
+
+
+
+
   /**
-   * Handle invalidate CSS button click
+   * Handle remove blur filter button click
    */
-  async handleInvalidateCSS() {
+  async handleRemoveBlurFilter() {
     try {
-      const selector = this.uiElements.cssSelector.value.trim();
+      console.log('🌀 Removing blur filters');
       
-      if (!selector) {
-        this.showTemporaryFeedback('Por favor ingresa un selector CSS');
-        return;
-      }
-      
-      // Validate selector format
-      const validSelectors = ['.', '#', '['];
-      const isValidSelector = validSelectors.some(prefix => selector.startsWith(prefix));
-      
-      if (!isValidSelector) {
-        this.showTemporaryFeedback('Selector debe empezar con . (clase), # (ID) o [ (atributo)');
-        return;
-      }
-      
-      const response = await MessageHandler.sendToBackground(Constants.ACTIONS.INVALIDATE_CSS, {
-        selector: selector
-      });
-      
-      if (response?.success) {
-        this.uiElements.cssSelector.value = '';
-        this.updateInvalidatedCSSCount(response.totalCount);
-        this.showTemporaryFeedback(`CSS invalidado: ${selector}`);
+      const response = await MessageHandler.sendToBackground(Constants.ACTIONS.REMOVE_BLUR_FILTER);
+
+      if (response.success) {
+        const patterns = response.patterns || [];
+        const totalCount = response.count || 0;
+        
+        if (totalCount > 0) {
+          showSuccess(`Eliminados ${totalCount} filtros blur`);
+          console.log('Blur patterns removed:', patterns);
+        } else {
+          showInfo('No se encontraron filtros blur para eliminar');
+        }
+        
+        await this.updateCounts(); // Refresh counts
       } else {
-        this.showTemporaryFeedback(response?.message || 'Error al invalidar CSS');
+        showError(response.error || 'Error eliminando filtros blur');
       }
+
     } catch (error) {
-      ErrorHandler.handle(error, 'Error invalidating CSS');
+      console.error('Error in handleRemoveBlurFilter:', error);
+      showError('Error eliminando filtros blur: ' + error.message);
     }
   }
 
-  /**
-   * Handle clear invalidated CSS button click
-   */
-  async handleClearInvalidatedCSS() {
-    try {
-      const response = await MessageHandler.sendToBackground(Constants.ACTIONS.CLEAR_INVALIDATED_CSS);
-      
-      if (response?.success) {
-        this.updateInvalidatedCSSCount(0);
-        this.showTemporaryFeedback('CSS restaurado');
-      } else {
-        this.showTemporaryFeedback(response?.message || 'Error al restaurar CSS');
-      }
-    } catch (error) {
-      ErrorHandler.handle(error, 'Error clearing invalidated CSS');
-    }
-  }
+
 
   /**
    * Show temporary feedback message
@@ -225,6 +261,27 @@ class PopupController {
     setTimeout(() => {
       feedback.classList.add('hidden');
     }, 3000);
+  }
+
+  /**
+   * Show success message (using global function)
+   */
+  showSuccess(message) {
+    showSuccess(message);
+  }
+
+  /**
+   * Show info message (using global function)
+   */
+  showInfo(message) {
+    showInfo(message);
+  }
+
+  /**
+   * Show error message (using global function)
+   */
+  showError(message) {
+    showError(`❌ ${message}`);
   }
 
   /**
@@ -384,13 +441,7 @@ class PopupController {
     this.updateVisibilityButtonState(this.uiElements.toggleVisibility, count);
   }
 
-  /**
-   * Update invalidated CSS count display
-   */
-  updateInvalidatedCSSCount(count) {
-    this.uiElements.invalidatedCount.textContent = `${count} regla${count !== 1 ? 's' : ''}`;
-    this.updateClearInvalidatedButtonState(this.uiElements.clearInvalidatedCSS, count);
-  }
+
 
   /**
    * Update visibility button state based on count
@@ -403,16 +454,7 @@ class PopupController {
     }
   }
 
-  /**
-   * Update clear invalidated CSS button state based on count
-   */
-  updateClearInvalidatedButtonState(button, count) {
-    if (count > 0) {
-      this.enableButton(button);
-    } else {
-      this.disableButton(button);
-    }
-  }
+
 
   /**
    * Enable visibility button
@@ -471,26 +513,7 @@ class PopupController {
     }
   }
 
-  /**
-   * Show invalidated CSS list
-   */
-  async showInvalidatedCSSList() {
-    try {
-      console.log('🔍 Requesting invalidated CSS list...');
-      const response = await MessageHandler.sendToBackground('getInvalidatedCSSList');
-      
-      console.log('📋 Invalidated CSS response:', response);
-      
-      if (response?.success) {
-        this.showListView('CSS Invalidados', 'invalidated', response.selectors, response.selectors.length);
-      } else {
-        this.showTemporaryFeedback('Error al obtener lista de CSS invalidados');
-      }
-    } catch (error) {
-      console.error('❌ Error getting invalidated CSS list:', error);
-      this.showTemporaryFeedback('Error al obtener lista de CSS invalidados');
-    }
-  }
+
 
   /**
    * Show list view with data
@@ -671,25 +694,222 @@ class PopupController {
       this.messageCleanup = null;
     }
   }
+
+  /**
+   * Handle remove elements action
+   */
+  async handleRemoveElements() {
+    try {
+      const selectorInput = document.getElementById('selectorToRemove');
+      const selector = selectorInput?.value?.trim();
+
+      if (!selector) {
+        showError('Por favor ingresa un selector válido');
+        return;
+      }
+
+      console.log(`🎯 Removing elements with selector: "${selector}"`);
+      
+      const response = await this.sendMessage({
+        action: 'removeElements',
+        selector: selector
+      });
+
+      if (response.success) {
+        showSuccess(`Eliminados ${response.count} elementos (${response.type})`);
+        selectorInput.value = ''; // Clear input
+        await this.updateCounts(); // Refresh counts
+      } else {
+        showError(response.error || 'Error eliminando elementos');
+      }
+
+    } catch (error) {
+      console.error('Error in handleRemoveElements:', error);
+      showError('Error eliminando elementos: ' + error.message);
+    }
+  }
+
+  /**
+   * Handle clear removed elements action
+   */
+  async handleClearRemovedElements() {
+    try {
+      console.log('🧹 Clearing all removed elements');
+      
+      const response = await this.sendMessage({
+        action: 'clearRemovedElements'
+      });
+
+      if (response.success) {
+        showSuccess(`Restaurados ${response.clearedCount || 0} elementos (recargando página)`);
+        // Page will reload automatically from content script
+      } else {
+        showError(response.error || 'Error restaurando elementos');
+      }
+
+    } catch (error) {
+      console.error('Error in handleClearRemovedElements:', error);
+      showError('Error restaurando elementos: ' + error.message);
+    }
+  }
+
+  /**
+   * Update UI counts
+   */
+  async updateCounts() {
+    try {
+      console.log('📊 Updating counts...');
+      
+      const response = await this.sendMessage({ action: 'getHiddenCount' });
+      
+      if (response?.success) {
+        const hiddenCount = response.count || 0;
+        const removedElementsCount = response.removedElementsCount || 0;
+        
+        // Update hidden elements count
+        if (this.uiElements.hiddenCount) {
+          this.uiElements.hiddenCount.textContent = `${hiddenCount} elemento${hiddenCount !== 1 ? 's' : ''}`;
+        }
+        
+        // Update removed elements count
+        const removedElementsCountElement = document.getElementById('removedElementsCount');
+        if (removedElementsCountElement) {
+          removedElementsCountElement.textContent = `${removedElementsCount} elementos`;
+        }
+        
+        console.log(`📊 Updated counts - Hidden: ${hiddenCount}, Removed: ${removedElementsCount}`);
+        
+      } else {
+        console.warn('⚠️ Failed to get counts:', response);
+      }
+      
+    } catch (error) {
+      console.error('❌ Error updating counts:', error);
+    }
+  }
+
+  /**
+   * Send message to content script via background
+   * @param {Object} message - Message to send
+   * @returns {Promise} Response from content script
+   */
+  async sendMessage(message) {
+    try {
+      console.log('📨 Sending message:', message);
+      
+      const response = await MessageHandler.sendToBackground(message.action, message);
+      console.log('📨 Response received:', response);
+      
+      return response;
+      
+    } catch (error) {
+      console.error('❌ Error sending message:', error);
+      throw error;
+    }
+  }
 }
 
 /**
  * Controller initialization when DOM is ready
  */
-document.addEventListener('DOMContentLoaded', () => {
-  // Verify utilities are available
-  if (typeof MessageHandler === 'undefined' || 
-      typeof ErrorHandler === 'undefined' || 
-      typeof Constants === 'undefined') {
-    console.error('Utility modules not loaded. Verify scripts are included in HTML.');
-    return;
-  }
-
-  // Initialize controller
-  const popupController = new PopupController();
+document.addEventListener('DOMContentLoaded', async () => {
+  console.log('🎯 HideThis popup loaded');
   
-  // Clean up resources when window closes
-  window.addEventListener('beforeunload', () => {
-    popupController.cleanup();
-  });
-}); 
+  try {
+    // Test content script connection first
+    console.log('🔍 Testing content script connection...');
+    const tabs = await chrome.tabs.query({active: true, currentWindow: true});
+    
+    if (tabs.length === 0) {
+      console.error('❌ No active tab found');
+      showError('No hay pestaña activa disponible');
+      return;
+    }
+    
+    const activeTab = tabs[0];
+    console.log('📋 Active tab:', activeTab.url);
+    
+    // Try to ping the content script
+    try {
+      const pingResponse = await chrome.tabs.sendMessage(activeTab.id, { action: 'ping' });
+      console.log('✅ Content script connection successful:', pingResponse);
+    } catch (connectionError) {
+      console.error('❌ Content script connection failed:', connectionError);
+      showError('⚠️ No se puede conectar con la página. Recarga la página e intenta de nuevo.');
+      
+      // Still try to initialize the popup, but with limited functionality
+      console.log('⚠️ Continuing with limited functionality...');
+    }
+    
+    // Initialize popup controller
+    const popupController = new PopupController();
+    await popupController.init();
+    
+    // Cleanup on close
+    window.addEventListener('beforeunload', () => {
+      popupController.cleanup();
+    });
+  } catch (error) {
+    console.error('💥 Critical error initializing popup:', error);
+    console.error('Error details:', {
+      message: error.message,
+      stack: error.stack,
+      name: error.name
+    });
+    showError('Error crítico al inicializar la extensión: ' + error.message);
+  }
+});
+
+/**
+ * Shows error message to user
+ * @param {string} message - Error message to display
+ */
+function showError(message) {
+  console.error('👤 Showing user error:', message);
+  
+  // Try to show in popup if possible
+  const errorContainer = document.getElementById('errorContainer');
+  if (errorContainer) {
+    errorContainer.textContent = message;
+    errorContainer.style.display = 'block';
+    setTimeout(() => {
+      errorContainer.style.display = 'none';
+    }, 5000);
+  } else {
+    // Fallback to alert
+    alert(message);
+  }
+}
+
+/**
+ * Show success message
+ */
+function showSuccess(message) {
+  const feedback = document.createElement('div');
+  feedback.className = 'feedback success';
+  feedback.textContent = message;
+  document.body.appendChild(feedback);
+  setTimeout(() => feedback.remove(), 3000);
+}
+
+/**
+ * Show info message
+ */
+function showInfo(message) {
+  const feedback = document.createElement('div');
+  feedback.className = 'feedback info';
+  feedback.textContent = message;
+  document.body.appendChild(feedback);
+  setTimeout(() => feedback.remove(), 3000);
+}
+
+/**
+ * Show error message
+ */
+function showError(message) {
+  const feedback = document.createElement('div');
+  feedback.className = 'feedback error';
+  feedback.textContent = message;
+  document.body.appendChild(feedback);
+  setTimeout(() => feedback.remove(), 5000);
+} 
