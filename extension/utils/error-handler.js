@@ -196,11 +196,18 @@ class ErrorHandler {
     
     return null;
   }
+
+  /**
+   * Generic handle method for backward compatibility
+   * @param {Error|string} error - Error to handle
+   * @param {string} context - Context where error occurred
+   */
+  static handle(error, context = 'Unknown') {
+    this.logError(error, context);
+  }
 }
 
 // Export for use in other modules
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = ErrorHandler;
-} else {
+if (typeof window !== 'undefined') {
   window.ErrorHandler = ErrorHandler;
 } 
