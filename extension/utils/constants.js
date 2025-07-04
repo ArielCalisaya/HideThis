@@ -17,14 +17,16 @@ const Constants = {
     CONTENT_SCRIPT_READY: 'contentScriptReady',
     UPDATE_COUNT: 'updateCount',
     TEST: 'test',
-    INVALIDATE_CSS: 'invalidateCSS',
-    CLEAR_INVALIDATED_CSS: 'clearInvalidatedCSS',
-    GET_INVALIDATED_COUNT: 'getInvalidatedCount',
-    UPDATE_INVALIDATED_COUNT: 'updateInvalidatedCount',
+    
+    // Element removal actions
+    REMOVE_ELEMENTS: 'removeElements',
+    REMOVE_BLUR_FILTER: 'removeBlurFilter',
+    CLEAR_REMOVED_ELEMENTS: 'clearRemovedElements',
+    GET_REMOVED_ELEMENTS_COUNT: 'getRemovedElementsCount',
+    
+    // List management actions
     GET_HIDDEN_ELEMENTS_LIST: 'getHiddenElementsList',
-    GET_INVALIDATED_CSS_LIST: 'getInvalidatedCSSList',
-    REMOVE_HIDDEN_ELEMENT: 'removeHiddenElement',
-    REMOVE_INVALIDATED_SELECTOR: 'removeInvalidatedSelector'
+    REMOVE_HIDDEN_ELEMENT: 'removeHiddenElement'
   },
 
   // CSS selectors for UI elements
@@ -33,10 +35,11 @@ const Constants = {
     TOGGLE_VISIBILITY_BTN: '#toggleVisibility',
     CLEAR_ALL_BTN: '#clearAll',
     HIDDEN_COUNT_SPAN: '#hiddenCount',
-    CSS_SELECTOR_INPUT: '#cssSelector',
-    INVALIDATE_CSS_BTN: '#invalidateCSS',
-    CLEAR_INVALIDATED_CSS_BTN: '#clearInvalidatedCSS',
-    INVALIDATED_COUNT_SPAN: '#invalidatedCount',
+    SELECTOR_INPUT: '#selectorToRemove',
+    REMOVE_ELEMENTS_BTN: '#removeElements',
+    REMOVE_BLUR_BTN: '#removeBlurFilter',
+    CLEAR_REMOVED_ELEMENTS_BTN: '#clearRemovedElements',
+    REMOVED_ELEMENTS_COUNT_SPAN: '#removedElementsCount',
     OVERLAY: '#hidethis-overlay',
     INSTRUCTIONS: '#hidethis-instructions',
     ELEMENT_INFO: '#hidethis-element-info',

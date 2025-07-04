@@ -1,6 +1,6 @@
 /**
  * StorageManager - Manages persistent storage for HideThis extension
- * Stores data per domain with structure: { "domain.com": { hidden: [], invalidatedCSS: [] } }
+ * Stores data per domain with structure: { "domain.com": { hidden: [], invalidatedCSS: [], removedClasses: [] } }
  */
 class StorageManager {
   constructor() {
@@ -38,7 +38,7 @@ class StorageManager {
       Object.entries(data).forEach(([domain, domainData]) => {
         this.cache.set(domain, {
           hidden: domainData.hidden || [],
-          invalidatedCSS: domainData.invalidatedCSS || []
+          removedElements: domainData.removedElements || domainData.removedClasses || []
         });
       });
       
@@ -58,7 +58,7 @@ class StorageManager {
       this.cache.forEach((domainData, domain) => {
         data[domain] = {
           hidden: domainData.hidden,
-          invalidatedCSS: domainData.invalidatedCSS
+          removedElements: domainData.removedElements
         };
       });
       
@@ -73,11 +73,11 @@ class StorageManager {
   /**
    * Get domain data, creating empty structure if not exists
    */
-  getDomainData(domain) {
+  getDomainDataSync(domain) {
     if (!this.cache.has(domain)) {
       this.cache.set(domain, {
         hidden: [],
-        invalidatedCSS: []
+        removedElements: []
       });
     }
     return this.cache.get(domain);
@@ -105,7 +105,7 @@ class StorageManager {
     await this.ensureInitialized();
     
     const domain = this.getCurrentDomain(url);
-    const domainData = this.getDomainData(domain);
+    const domainData = this.getDomainDataSync(domain);
     
     if (!domainData.hidden.includes(selector)) {
       domainData.hidden.push(selector);
@@ -121,7 +121,7 @@ class StorageManager {
     await this.ensureInitialized();
     
     const domain = this.getCurrentDomain(url);
-    const domainData = this.getDomainData(domain);
+    const domainData = this.getDomainDataSync(domain);
     
     const index = domainData.hidden.indexOf(selector);
     if (index > -1) {
@@ -140,7 +140,7 @@ class StorageManager {
     await this.ensureInitialized();
     
     const domain = this.getCurrentDomain(url);
-    const domainData = this.getDomainData(domain);
+    const domainData = this.getDomainDataSync(domain);
     return [...domainData.hidden]; // Return copy
   }
 
@@ -151,7 +151,7 @@ class StorageManager {
     await this.ensureInitialized();
     
     const domain = this.getCurrentDomain(url);
-    const domainData = this.getDomainData(domain);
+    const domainData = this.getDomainDataSync(domain);
     
     const count = domainData.hidden.length;
     domainData.hidden = [];
@@ -224,6 +224,123 @@ class StorageManager {
     return count;
   }
 
+  // === REMOVED CLASSES METHODS ===
+
+  /**
+   * Add removed class for current domain
+   */
+  async addRemovedClass(className, url = window.location.href) {
+    await this.ensureInitialized();
+    
+    const domain = this.getCurrentDomain(url);
+    const domainData = this.getDomainDataSync(domain);
+    
+    if (!domainData.removedElements.includes(className)) {
+      domainData.removedElements.push(className);
+      await this.saveToStorage();
+      console.log('✅ Added removed class:', className, 'for domain:', domain);
+    }
+  }
+
+  /**
+   * Remove removed class for current domain
+   */
+  async removeRemovedClass(className, url = window.location.href) {
+    await this.ensureInitialized();
+    
+    const domain = this.getCurrentDomain(url);
+    const domainData = this.getDomainDataSync(domain);
+    
+    const index = domainData.removedElements.indexOf(className);
+    if (index > -1) {
+      domainData.removedElements.splice(index, 1);
+      await this.saveToStorage();
+      console.log('✅ Removed removed class:', className, 'for domain:', domain);
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * Get all removed classes for current domain
+   */
+  async getRemovedClasses(url = window.location.href) {
+    await this.ensureInitialized();
+    
+    const domain = this.getCurrentDomain(url);
+    const domainData = this.getDomainDataSync(domain);
+    return [...domainData.removedElements]; // Return copy
+  }
+
+  /**
+   * Clear all removed classes for current domain
+   */
+  async clearRemovedClasses(url = window.location.href) {
+    await this.ensureInitialized();
+    
+    const domain = this.getCurrentDomain(url);
+    const domainData = this.getDomainDataSync(domain);
+    
+    const count = domainData.removedElements.length;
+    domainData.removedElements = [];
+    await this.saveToStorage();
+    console.log('✅ Cleared', count, 'removed classes for domain:', domain);
+    return count;
+  }
+
+  // === DOM ATTRIBUTES REMOVER METHODS ===
+
+  /**
+   * Save domain data for DomAttrsRemover
+   * @param {string} domain - Domain name
+   * @param {Object} data - Domain data object
+   */
+  async saveDomainData(domain, data) {
+    await this.ensureInitialized();
+    
+    this.cache.set(domain, {
+      hidden: data.hidden || [],
+      removedElements: data.removedElements || []
+    });
+    
+    await this.saveToStorage();
+    console.log('✅ Saved domain data for:', domain);
+  }
+
+  /**
+   * Get domain data for DomAttrsRemover
+   * @param {string} domain - Domain name
+   * @returns {Object} Domain data object
+   */
+  async getDomainData(domain) {
+    await this.ensureInitialized();
+    
+    if (!this.cache.has(domain)) {
+      this.cache.set(domain, {
+        hidden: [],
+        removedElements: []
+      });
+    }
+    
+    return {
+      hidden: [...this.cache.get(domain).hidden],
+      removedElements: [...this.cache.get(domain).removedElements]
+    };
+  }
+
+  /**
+   * Get count of hidden elements for current domain
+   * @param {string} url - URL to get domain from
+   * @returns {number} Count of hidden elements
+   */
+  async getHiddenCount(url = window.location.href) {
+    await this.ensureInitialized();
+    
+    const domain = this.getCurrentDomain(url);
+    const domainData = this.getDomainDataSync(domain);
+    return domainData.hidden.length;
+  }
+
   // === UTILITY METHODS ===
 
   /**
@@ -237,7 +354,8 @@ class StorageManager {
     
     return {
       hidden: domainData.hidden.length,
-      invalidatedCSS: domainData.invalidatedCSS.length
+      invalidatedCSS: domainData.invalidatedCSS.length,
+      removedClasses: domainData.removedElements.length
     };
   }
 
@@ -293,17 +411,20 @@ class StorageManager {
     const domains = Array.from(this.cache.keys());
     let totalHidden = 0;
     let totalInvalidated = 0;
+    let totalRemovedClasses = 0;
     
     domains.forEach(domain => {
       const data = this.cache.get(domain);
       totalHidden += data.hidden.length;
       totalInvalidated += data.invalidatedCSS.length;
+      totalRemovedClasses += data.removedElements.length;
     });
     
     return {
       domains: domains.length,
       totalHidden,
       totalInvalidated,
+      totalRemovedClasses,
       domainList: domains
     };
   }
