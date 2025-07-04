@@ -1,96 +1,89 @@
 // HideThis Element Selector
 class ElementSelector {
   constructor() {
+    // Initialize properties
     this.isActive = false;
+    this.isInitialized = false;
+    this.isFullyInitialized = false;
+    this.selectedElement = null;
+    this.highlightedElement = null;
+    this.pendingSelection = new Set();
     this.hiddenElements = new Set();
     this.overlay = null;
-    this.selectedElement = null;
-    this.pendingElements = new Set(); // Elements selected but not yet hidden
-    this.boundHandlers = null; // Store bound event handlers for proper removal
-    this.cssInvalidator = null; // CSS invalidation manager
+    this.instructions = null;
+    this.elementInfo = null;
+    this.selectionControls = null;
+    
+    // Component references
+    this.elementSelector = null; // ElementSelector component reference  
+    // CSS invalidation functionality removed - now using DomAttrsRemover
     this.storageManager = null; // Persistent storage manager
-    this.init();
+    this.domAttrsRemover = null; // DomAttrsRemover instance
+    
+    // Initialize async
+    this.initializeAsync();
   }
 
-  init() {
-    console.log('🎯 HideThis ElementSelector initialized on:', window.location.href);
-    
+  /**
+   * Async initialization wrapper
+   */
+  async initializeAsync() {
     try {
-      // Create overlay for highlighting elements
-      this.createOverlay();
-      
-      // Initialize storage manager first
-      this.initializeStorageManager();
-      
-      // Listen for messages from popup
-      chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+      await this.init();
+    } catch (error) {
+      console.error('[Selector] ❌ Async initialization failed:', error);
+    }
+  }
+
+  async init() {
         try {
-          if (request.action === 'toggleSelector') {
-            this.toggleSelector();
-            sendResponse({ success: true, isActive: this.isActive });
-          } else if (request.action === 'getSelectorState') {
-            sendResponse({ success: true, isActive: this.isActive });
-          } else if (request.action === 'toggleVisibility') {
-            this.toggleHiddenElements();
-            sendResponse({ success: true });
-          } else if (request.action === 'clearAll') {
-            this.clearAllHidden().then(() => {
-              sendResponse({ success: true });
-            }).catch(error => {
-              sendResponse({ success: false, error: error.message });
-            });
-            return true; // Indicates async response
-          } else if (request.action === 'getHiddenCount') {
-            this.getHiddenCount().then(counts => {
-              sendResponse({ 
-                success: true, 
-                count: counts.hidden,
-                invalidatedCount: counts.invalidatedCSS
-              });
-            }).catch(error => {
-              sendResponse({ 
-                success: false, 
-                error: error.message 
-              });
-            });
-            return true; // Indicates async response
-          } else if (request.action === 'invalidateCSS') {
-            this.handleInvalidateCSS(request.selector, sendResponse);
-            return true; // Indicates async response
-          } else if (request.action === 'clearInvalidatedCSS') {
-            this.handleClearInvalidatedCSS(sendResponse);
-            return true; // Indicates async response
-          } else if (request.action === 'getInvalidatedCount') {
-            sendResponse({ count: this.cssInvalidator ? this.cssInvalidator.getInvalidatedCount() : 0 });
-          } else if (request.action === 'getHiddenElementsList') {
-            console.log('🔍 Content script: Getting hidden elements list');
-            this.handleGetHiddenElementsList(sendResponse);
-          } else if (request.action === 'getInvalidatedCSSList') {
-            console.log('🔍 Content script: Getting invalidated CSS list');
-            this.handleGetInvalidatedCSSList(sendResponse);
-          } else if (request.action === 'removeHiddenElement') {
-            this.handleRemoveHiddenElement(request.index, sendResponse);
-          } else if (request.action === 'removeInvalidatedSelector') {
-            this.handleRemoveInvalidatedSelector(request.index, sendResponse);
-          } else if (request.action === 'ping') {
-            sendResponse({ success: true, message: 'pong', url: window.location.href });
-          } else {
-            sendResponse({ success: false, error: 'Unknown action' });
-          }
-        } catch (error) {
-          console.error('Error handling message:', error);
-          sendResponse({ success: false, error: error.message });
-        }
-      });
+      console.log('[Selector] 🚀 Starting content script initialization...');
+      
+      // Wait a bit for the page to stabilize
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // Check if already initialized
+      if (this.isInitialized) {
+        console.log('[Selector] ⚠️ Already initialized, skipping');
+        return;
+      }
+      
+      this.isInitialized = true;
+      console.log('[Selector] 📍 Initialization step 1: Basic setup');
+      
+      // Create overlay element
+      this.createOverlay();
+      console.log('✅ Overlay created successfully');
+      
+      // Initialize components
+      await this.initializeStorageManager();
+      console.log('✅ Storage Manager setup completed');
+      
+      await this.setupDomAttrsRemover();
+      console.log('✅ DomAttrsRemover setup completed');
+      
+      // Set up initial message listener
+      this.setupInitialMessageListener();
+      console.log('✅ Message listener setup completed');
+      
+      console.log('[Selector] ✅ All components initialized successfully');
+      this.isFullyInitialized = true;
       
       // Send a heartbeat to confirm we're loaded
       setTimeout(() => {
         try {
+          console.log('💓 Sending heartbeat to background script...');
           chrome.runtime.sendMessage({ 
             action: 'contentScriptReady', 
             url: window.location.href,
             hostname: window.location.hostname,
             timestamp: new Date().toISOString()
+          }, (response) => {
+            if (chrome.runtime.lastError) {
+              console.warn('⚠️ Heartbeat failed:', chrome.runtime.lastError.message);
+            } else {
+              console.log('✅ Heartbeat sent successfully');
+            }
           });
           
           // Special handling for YouTube and other SPAs
@@ -98,32 +91,21 @@ class ElementSelector {
             this.setupSPANavigationListener();
           }
         } catch (error) {
-          console.error('Error sending heartbeat:', error);
+          console.error('💥 Error sending heartbeat:', error);
         }
       }, 500);
       
+      console.log('🚀 Content script initialization completed successfully');
+      
     } catch (error) {
-      console.error('Error in init():', error);
+      console.error('💥 Critical error in content script init():', error);
+      console.error('Stack trace:', error.stack);
     }
   }
 
   /**
-   * Initializes the CSS invalidator
+   * CSS invalidation functionality has been removed and replaced with DomAttrsRemover
    */
-  initializeCSSInvalidator() {
-    try {
-      // Initialize the CSS invalidator component
-      if (typeof CSSInvalidator !== 'undefined') {
-        // Pass storageManager if available (will be set after storage initialization)
-        this.cssInvalidator = new CSSInvalidator(this.storageManager);
-        console.log('✅ CSS Invalidator initialized successfully');
-      } else {
-        console.warn('CSSInvalidator not available, CSS invalidation features disabled');
-      }
-    } catch (error) {
-      console.error('Error initializing CSS invalidator:', error);
-    }
-  }
 
   /**
    * Initializes the storage manager and restores persistent data
@@ -136,25 +118,18 @@ class ElementSelector {
         await this.storageManager.init();
         console.log('✅ Storage Manager initialized successfully');
         
-        // Now initialize CSS invalidator with storage manager
-        this.initializeCSSInvalidator();
-        
-        // Restore hidden elements and CSS for current domain
+        // Restore hidden elements and removed elements for current domain
         await this.restorePersistedData();
       } else {
         console.warn('StorageManager not available, persistence features disabled');
-        // Initialize CSS invalidator without storage manager
-        this.initializeCSSInvalidator();
       }
     } catch (error) {
       console.error('Error initializing Storage Manager:', error);
-      // Initialize CSS invalidator without storage manager as fallback
-      this.initializeCSSInvalidator();
     }
   }
 
   /**
-   * Restores hidden elements and invalidated CSS for current domain
+   * Restores hidden elements and removed elements for current domain
    */
   async restorePersistedData() {
     try {
@@ -178,23 +153,10 @@ class ElementSelector {
         }
       });
       
-      // Restore invalidated CSS
-      const invalidatedSelectors = await this.storageManager.getInvalidatedCSS();
-      let restoredCSS = 0;
+      // Restore removed elements (will be handled by DomAttrsRemover when it initializes)
       
-      if (this.cssInvalidator && invalidatedSelectors.length > 0) {
-        for (const selector of invalidatedSelectors) {
-          try {
-            await this.cssInvalidator.invalidateSelector(selector);
-            restoredCSS++;
-          } catch (error) {
-            console.warn('Error restoring invalidated CSS selector:', selector, error);
-          }
-        }
-      }
-      
-      if (restoredHidden > 0 || restoredCSS > 0) {
-        console.log(`🔄 Restored ${restoredHidden} hidden elements and ${restoredCSS} CSS rules for ${window.location.hostname}`);
+      if (restoredHidden > 0) {
+        console.log(`🔄 Restored ${restoredHidden} hidden elements for ${window.location.hostname}`);
       }
     } catch (error) {
       console.error('Error restoring persisted data:', error);
@@ -202,111 +164,49 @@ class ElementSelector {
   }
 
   /**
-   * Gets current counts from storage (persistent data)
+   * Get count of hidden elements and removed elements
+   * @returns {Object} Counts object with hidden and removedElements
    */
   async getHiddenCount() {
     try {
-      if (this.storageManager) {
-        return await this.storageManager.getCounts();
-      } else {
-        // Fallback to in-memory counts
-        return {
-          hidden: this.hiddenElements.size,
-          invalidatedCSS: this.cssInvalidator ? this.cssInvalidator.getInvalidatedCount() : 0
-        };
+      const hiddenCount = await this.storageManager.getHiddenCount();
+      
+      let removedElementsCount = 0;
+      if (this.domAttrsRemover) {
+        try {
+          removedElementsCount = await this.domAttrsRemover.getRemovedElementsCount();
+        } catch (error) {
+          console.warn('[Selector] Could not get removed elements count:', error);
+        }
       }
-    } catch (error) {
-      console.error('Error getting hidden count:', error);
-      // Fallback to in-memory counts
+      
+      console.log(`[Selector] 📊 Counts - Hidden: ${hiddenCount}, Removed: ${removedElementsCount}`);
+      
       return {
-        hidden: this.hiddenElements.size,
-        invalidatedCSS: this.cssInvalidator ? this.cssInvalidator.getInvalidatedCount() : 0
+        hidden: hiddenCount,
+        removedElements: removedElementsCount
+      };
+      
+    } catch (error) {
+      console.error('[Selector] ❌ Error getting counts:', error);
+      return {
+        hidden: 0,
+        removedElements: 0
       };
     }
   }
 
   /**
-   * Handles CSS invalidation request
-   * @param {string} selector - CSS selector to invalidate
-   * @param {Function} sendResponse - Response callback
+   * CSS invalidation functionality has been removed
    */
-  async handleInvalidateCSS(selector, sendResponse) {
-    try {
-      if (!this.cssInvalidator) {
-        sendResponse({ 
-          success: false, 
-          error: 'CSS invalidation not available' 
-        });
-        return;
-      }
-
-      const success = await this.cssInvalidator.invalidateSelector(selector);
-      
-      if (success) {
-        const count = this.cssInvalidator.getInvalidatedCount();
-        
-        // Notify popup of count update
-        chrome.runtime.sendMessage({
-          action: 'updateInvalidatedCount',
-          count: count
-        });
-        
-        sendResponse({ 
-          success: true, 
-          count: count,
-          totalCount: count,
-          selector: selector 
-        });
-      } else {
-        sendResponse({ 
-          success: false, 
-          error: 'Failed to invalidate CSS selector' 
-        });
-      }
-    } catch (error) {
-      console.error('Error invalidating CSS:', error);
-      sendResponse({ 
-        success: false, 
-        error: error.message 
-      });
-    }
-  }
 
   /**
    * Handles clearing all invalidated CSS
    * @param {Function} sendResponse - Response callback
    */
-  async handleClearInvalidatedCSS(sendResponse) {
-    try {
-      if (!this.cssInvalidator) {
-        sendResponse({ 
-          success: false, 
-          error: 'CSS invalidation not available' 
-        });
-        return;
-      }
-
-      const clearedCount = await this.cssInvalidator.clearAllInvalidated();
-      
-      // Notify popup of count update
-      chrome.runtime.sendMessage({
-        action: 'updateInvalidatedCount',
-        count: 0
-      });
-      
-      sendResponse({ 
-        success: true, 
-        count: 0,
-        clearedCount: clearedCount 
-      });
-    } catch (error) {
-      console.error('Error clearing invalidated CSS:', error);
-      sendResponse({ 
-        success: false, 
-        error: error.message 
-      });
-    }
-  }
+  /**
+   * CSS invalidation functionality has been removed
+   */
 
   createOverlay() {
     // Remove existing overlay if it exists
@@ -390,7 +290,7 @@ class ElementSelector {
     this.clearAllOutlines();
     
     // Clear any pending selection styling
-    this.pendingElements.forEach(element => {
+    this.pendingSelection.forEach(element => {
       element.style.backgroundColor = '';
       element.style.border = '';
       element.style.outline = '';
@@ -659,14 +559,14 @@ class ElementSelector {
   }
 
   toggleElementSelection(element) {
-    if (this.pendingElements.has(element)) {
+    if (this.pendingSelection.has(element)) {
       // Deselect element
-      this.pendingElements.delete(element);
+      this.pendingSelection.delete(element);
       element.style.backgroundColor = '';
       element.style.border = '';
     } else {
       // Select element
-      this.pendingElements.add(element);
+      this.pendingSelection.add(element);
       element.style.backgroundColor = 'rgba(59, 130, 246, 0.3)';
       element.style.border = '2px solid #3b82f6';
     }
@@ -679,7 +579,7 @@ class ElementSelector {
     const existingControls = document.getElementById('hidethis-selection-controls');
     if (existingControls) existingControls.remove();
     
-    if (this.pendingElements.size === 0) return;
+    if (this.pendingSelection.size === 0) return;
     
     // Create selection controls
     const controls = document.createElement('div');
@@ -705,7 +605,7 @@ class ElementSelector {
     
     controls.innerHTML = `
       <span style="flex-basis: 100%; text-align: center; margin-bottom: 8px;">
-        ${this.pendingElements.size} elemento${this.pendingElements.size !== 1 ? 's' : ''} seleccionado${this.pendingElements.size !== 1 ? 's' : ''}
+        ${this.pendingSelection.size} elemento${this.pendingSelection.size !== 1 ? 's' : ''} seleccionado${this.pendingSelection.size !== 1 ? 's' : ''}
       </span>
       <button id="hidethis-confirm" style="
         background: #10b981;
@@ -748,22 +648,195 @@ class ElementSelector {
   }
 
   confirmSelection() {
+    console.log('[Selector] 🎯 Confirming selection with removal options');
+    
+    if (this.pendingSelection.size === 0) {
+      console.log('[Selector] ⚠️ No elements selected');
+      return;
+    }
+
+    // Show action selection dialog
+    this.showActionSelectionDialog();
+  }
+
+  /**
+   * Show dialog to choose between hide or remove actions
+   */
+  showActionSelectionDialog() {
+    // Remove existing dialog
+    const existingDialog = document.getElementById('hidethis-action-dialog');
+    if (existingDialog) existingDialog.remove();
+
+    const dialog = document.createElement('div');
+    dialog.id = 'hidethis-action-dialog';
+    dialog.style.cssText = `
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(0, 0, 0, 0.95);
+      color: white;
+      padding: 20px;
+      border-radius: 12px;
+      font-family: Arial, sans-serif;
+      z-index: 1000010;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+      min-width: 300px;
+      text-align: center;
+    `;
+
+    dialog.innerHTML = `
+      <h3 style="margin: 0 0 16px 0; color: #3b82f6;">
+        🎯 Acción para ${this.pendingSelection.size} elemento${this.pendingSelection.size !== 1 ? 's' : ''}
+      </h3>
+      <p style="margin: 0 0 20px 0; color: #ccc; font-size: 14px;">
+        Elige qué hacer con los elementos seleccionados:
+      </p>
+      <div style="display: flex; gap: 12px; justify-content: center;">
+        <button id="hidethis-action-hide" style="
+          background: #3b82f6;
+          color: white;
+          border: none;
+          padding: 10px 16px;
+          border-radius: 6px;
+          cursor: pointer;
+          font-size: 14px;
+          font-weight: 500;
+        ">
+          👁️ Ocultar
+        </button>
+        <button id="hidethis-action-remove" style="
+          background: #ef4444;
+          color: white;
+          border: none;
+          padding: 10px 16px;
+          border-radius: 6px;
+          cursor: pointer;
+          font-size: 14px;
+          font-weight: 500;
+        ">
+          🗑️ Eliminar
+        </button>
+        <button id="hidethis-action-cancel" style="
+          background: #6b7280;
+          color: white;
+          border: none;
+          padding: 10px 16px;
+          border-radius: 6px;
+          cursor: pointer;
+          font-size: 14px;
+          font-weight: 500;
+        ">
+          ❌ Cancelar
+        </button>
+      </div>
+    `;
+
+    document.body.appendChild(dialog);
+
+    // Add event listeners
+    const hideBtn = dialog.querySelector('#hidethis-action-hide');
+    const removeBtn = dialog.querySelector('#hidethis-action-remove');
+    const cancelBtn = dialog.querySelector('#hidethis-action-cancel');
+
+    hideBtn.addEventListener('click', () => {
+      this.executeHideAction();
+      dialog.remove();
+    });
+
+    removeBtn.addEventListener('click', () => {
+      this.executeRemoveAction();
+      dialog.remove();
+    });
+
+    cancelBtn.addEventListener('click', () => {
+      dialog.remove();
+    });
+
+    // Close on Escape
+    const handleEscape = (e) => {
+      if (e.key === 'Escape') {
+        dialog.remove();
+        document.removeEventListener('keydown', handleEscape);
+      }
+    };
+    document.addEventListener('keydown', handleEscape);
+  }
+
+  /**
+   * Execute hide action on selected elements
+   */
+  async executeHideAction() {
+    console.log('[Selector] 👁️ Executing hide action');
+    
+    try {
     // Hide all selected elements
-    this.pendingElements.forEach(element => {
+      for (const element of this.pendingSelection) {
       // Clear selection styling before hiding
       element.style.backgroundColor = '';
       element.style.border = '';
       
       // Hide the element
-      this.hideElement(element);
-    });
+        await this.hideElement(element);
+      }
+      
+      console.log(`[Selector] ✅ Hidden ${this.pendingSelection.size} elements`);
+      
+      // Clear pending elements
+      this.pendingSelection.clear();
+      
+      // Deactivate selector
+      this.deactivateSelector();
+      
+    } catch (error) {
+      console.error('[Selector] ❌ Error hiding elements:', error);
+    }
+  }
+
+  /**
+   * Execute remove action on selected elements
+   */
+  async executeRemoveAction() {
+    console.log('[Selector] 🗑️ Executing remove action');
     
-    // Clear pending elements
-    this.pendingElements.clear();
-    
-    // Deactivate selector
-    this.deactivateSelector();
-    this.isActive = false;
+    try {
+      if (!this.domAttrsRemover) {
+        throw new Error('DomAttrsRemover not initialized');
+      }
+
+      let totalRemoved = 0;
+      
+      // Remove each selected element
+      for (const element of this.pendingSelection) {
+        // Clear selection styling
+        element.style.backgroundColor = '';
+        element.style.border = '';
+        
+        // Generate selector for this element
+        const selector = this.generateElementSelector(element);
+        console.log(`[Selector] 🎯 Removing element with selector: ${selector}`);
+        
+        try {
+          const result = await this.domAttrsRemover.removeElements(selector);
+          if (result.success) {
+            totalRemoved += result.count;
+          }
+        } catch (error) {
+          console.warn(`[Selector] ⚠️ Could not remove element: ${selector}`, error.message);
+        }
+      }
+      
+      console.log(`[Selector] ✅ Removed ${totalRemoved} elements via visual selection`);
+      
+      // Clear pending elements
+      this.pendingSelection.clear();
+      
+      // Deactivate selector
+      this.deactivateSelector();
+      
+    } catch (error) {
+      console.error('[Selector] ❌ Error removing elements:', error);
+    }
   }
 
   /**
@@ -779,7 +852,7 @@ class ElementSelector {
     const processedSelectors = new Set();
 
     // Process each selected element
-    for (const element of this.pendingElements) {
+    for (const element of this.pendingSelection) {
       // Clear selection styling
       element.style.backgroundColor = '';
       element.style.border = '';
@@ -810,9 +883,9 @@ class ElementSelector {
     } else {
       alert('No se pudo invalidar CSS para los elementos seleccionados');
     }
-
+    
     // Clear pending elements
-    this.pendingElements.clear();
+    this.pendingSelection.clear();
     
     // Deactivate selector
     this.deactivateSelector();
@@ -821,7 +894,7 @@ class ElementSelector {
 
   cancelSelection() {
     // Clear selection styling from all pending elements
-    this.pendingElements.forEach(element => {
+    this.pendingSelection.forEach(element => {
       element.style.backgroundColor = '';
       element.style.border = '';
       element.style.outline = '';
@@ -829,7 +902,7 @@ class ElementSelector {
     });
     
     // Clear pending elements
-    this.pendingElements.clear();
+    this.pendingSelection.clear();
     
     // Clear any remaining outlines
     this.clearAllOutlines();
@@ -970,46 +1043,16 @@ class ElementSelector {
    * Handles getting the list of invalidated CSS selectors
    * @param {Function} sendResponse - Response callback
    */
+  /**
+   * CSS invalidation functionality has been removed
+   */
   handleGetInvalidatedCSSList(sendResponse) {
-    try {
-      if (!this.cssInvalidator) {
-        console.log('⚠️ CSS Invalidator not available');
-        sendResponse({
-          success: true,
-          selectors: [],
-          count: 0
-        });
-        return;
-      }
-
-      const invalidatedSelectors = this.cssInvalidator.getInvalidatedSelectors();
-      console.log('📋 Invalidated selectors count:', invalidatedSelectors.length);
-      const selectors = invalidatedSelectors.map((selector, index) => {
-        let type = 'other';
-        if (selector.startsWith('.')) type = 'class';
-        else if (selector.startsWith('#')) type = 'id';
-        else if (selector.startsWith('[')) type = 'attribute';
-
-        return {
-          index: index,
-          selector: selector,
-          type: type
-        };
-      });
-
-      console.log('✅ Sending CSS selectors response:', selectors.length, 'selectors');
-      sendResponse({
-        success: true,
-        selectors: selectors,
-        count: selectors.length
-      });
-    } catch (error) {
-      console.error('Error getting invalidated CSS list:', error);
-      sendResponse({
-        success: false,
-        error: error.message
-      });
-    }
+    console.log('⚠️ CSS Invalidator not available - functionality removed');
+    sendResponse({
+      success: true,
+      selectors: [],
+      count: 0
+    });
   }
 
   /**
@@ -1055,52 +1098,15 @@ class ElementSelector {
    * @param {number} index - Index of selector to remove
    * @param {Function} sendResponse - Response callback
    */
+  /**
+   * CSS invalidation functionality has been removed
+   */
   handleRemoveInvalidatedSelector(index, sendResponse) {
-    try {
-      if (!this.cssInvalidator) {
-        sendResponse({
-          success: false,
-          error: 'CSS invalidator not available'
-        });
-        return;
-      }
-
-      const selectors = this.cssInvalidator.getInvalidatedSelectors();
-      
-      if (index >= 0 && index < selectors.length) {
-        const selector = selectors[index];
-        const success = this.cssInvalidator.restoreSelector(selector);
-        
-        if (success) {
-          sendResponse({
-            success: true,
-            count: this.cssInvalidator.getInvalidatedCount()
-          });
-
-          // Notify popup of count update
-          chrome.runtime.sendMessage({
-            action: 'updateInvalidatedCount',
-            count: this.cssInvalidator.getInvalidatedCount()
-          });
-        } else {
-          sendResponse({
-            success: false,
-            error: 'Failed to restore CSS selector'
-          });
-        }
-      } else {
-        sendResponse({
-          success: false,
-          error: 'Invalid selector index'
-        });
-      }
-    } catch (error) {
-      console.error('Error removing invalidated selector:', error);
-      sendResponse({
-        success: false,
-        error: error.message
-      });
-    }
+    console.log('⚠️ CSS Invalidator not available - functionality removed');
+    sendResponse({
+      success: false,
+      error: 'CSS invalidation functionality has been removed'
+    });
   }
 
   /**
@@ -1327,6 +1333,363 @@ class ElementSelector {
       }, 1000);
     });
   }
+
+  /**
+   * Handle remove class action
+   */
+  /**
+   * Use DomAttrsRemover.removeElements() instead
+   */
+  async handleRemoveClass(className, sendResponse) {
+    console.log('⚠️ CSS Invalidator not available - use removeElements instead');
+    
+    try {
+      if (this.domAttrsRemover) {
+        const result = await this.domAttrsRemover.removeElements(`.${className}`);
+        sendResponse({ 
+          success: true, 
+          removedCount: result.count,
+          totalCount: result.count,
+          message: `Removed class '${className}' from ${result.count} elements`
+        });
+      } else {
+        sendResponse({ success: false, error: 'DomAttrsRemover not available' });
+      }
+    } catch (error) {
+      console.error('Error removing class:', error);
+      sendResponse({ success: false, error: error.message });
+    }
+  }
+
+  /**
+   * Handle remove blur filter action
+   */
+  /**
+   * Use DomAttrsRemover.removeBlurFilter() instead
+   */
+  async handleRemoveBlurFilter(className, sendResponse) {
+    console.log('⚠️ CSS Invalidator not available - using DomAttrsRemover.removeBlurFilter instead');
+    
+    try {
+      if (this.domAttrsRemover) {
+        const result = await this.domAttrsRemover.removeBlurFilter();
+        sendResponse({ 
+          success: true, 
+          removedCount: result.count,
+          totalCount: result.count,
+          message: `Removed blur filter from ${result.count} elements`
+        });
+      } else {
+        sendResponse({ success: false, error: 'DomAttrsRemover not available' });
+      }
+    } catch (error) {
+      console.error('Error removing blur filter:', error);
+      sendResponse({ success: false, error: error.message });
+    }
+  }
+
+  /**
+   * Use DomAttrsRemover.clearRemovedElements() instead
+   */
+  async handleClearRemovedClasses(sendResponse) {
+    console.log('⚠️ Using DomAttrsRemover.clearRemovedElements instead');
+    
+    try {
+      if (this.domAttrsRemover) {
+        const result = await this.domAttrsRemover.clearRemovedElements();
+        sendResponse({ 
+          success: true, 
+          clearedCount: result.clearedCount,
+          totalCount: 0,
+          message: `Cleared ${result.clearedCount} removed elements`
+        });
+      } else if (this.storageManager) {
+        const clearedCount = await this.storageManager.clearRemovedClasses();
+        sendResponse({ 
+          success: true, 
+          clearedCount: clearedCount,
+          totalCount: 0,
+          message: `Cleared ${clearedCount} removed classes`
+        });
+      } else {
+        sendResponse({ success: false, error: 'Neither DomAttrsRemover nor StorageManager available' });
+      }
+    } catch (error) {
+      console.error('Error clearing removed classes:', error);
+      sendResponse({ success: false, error: error.message });
+    }
+  }
+
+  /**
+   * Get total count of removed elements
+   */
+  async getTotalRemovedClassesCount() {
+    try {
+      if (this.domAttrsRemover) {
+        return await this.domAttrsRemover.getRemovedElementsCount();
+      } else if (this.storageManager) {
+        const counts = await this.storageManager.getCounts();
+        return counts.removedClasses || 0;
+      }
+      return 0;
+    } catch (error) {
+      console.error('Error getting removed elements count:', error);
+      return 0;
+    }
+  }
+
+  /**
+   * Setup DomAttrsRemover for element removal functionality
+   */
+  async setupDomAttrsRemover() {
+    try {
+      console.log('[Selector] 🎯 Setting up DomAttrsRemover...');
+      
+      if (typeof DomAttrsRemover !== 'undefined') {
+        // Use the global instance created by the component
+        if (window.domAttrsRemover) {
+          this.domAttrsRemover = window.domAttrsRemover;
+          console.log('[Selector] ✅ Using existing DomAttrsRemover instance');
+        } else {
+          this.domAttrsRemover = new DomAttrsRemover();
+          console.log('[Selector] ✅ Created new DomAttrsRemover instance');
+        }
+      } else {
+        console.warn('[Selector] ⚠️ DomAttrsRemover not available');
+      }
+      
+    } catch (error) {
+      console.error('[Selector] ❌ Error setting up DomAttrsRemover:', error);
+      ErrorHandler.handle(error, 'DomAttrsRemover setup');
+    }
+  }
+
+  /**
+   * Set up the initial message listener for popup communication
+   */
+  setupInitialMessageListener() {
+    try {
+      console.log('[Selector] 📡 Setting up message listener...');
+      
+      // Use chrome.runtime.onMessage directly since MessageHandler might not be available
+      chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+        try {
+          console.log(`[Selector] 📨 Received message: ${request.action}`);
+          
+          switch (request.action) {
+            case 'ping':
+              console.log('[Selector] 🏓 Responding to ping');
+              sendResponse({ success: true, message: 'pong', url: window.location.href });
+              break;
+              
+            case 'toggleSelector':
+              this.toggleSelector();
+              sendResponse({ success: true, isActive: this.isActive });
+              break;
+              
+            case 'getSelectorState':
+              sendResponse({ success: true, isActive: this.isActive });
+              break;
+              
+            case 'toggleVisibility':
+              this.toggleHiddenElements();
+              sendResponse({ success: true });
+              break;
+              
+            case 'clearAll':
+              this.clearAllHidden().then(() => {
+                sendResponse({ success: true });
+              }).catch(error => {
+                console.error('[Selector] Error in clearAll:', error);
+                sendResponse({ success: false, error: error.message });
+              });
+              return true; // Async response
+              
+            case 'getHiddenCount':
+              this.getHiddenCount().then(counts => {
+                sendResponse({ 
+                  success: true, 
+                  count: counts.hidden,
+                  removedElementsCount: counts.removedElements || 0
+                });
+              }).catch(error => {
+                console.error('[Selector] Error in getHiddenCount:', error);
+                sendResponse({ success: false, error: error.message });
+              });
+              return true; // Async response
+              
+            // Element removal actions
+            case 'removeElements':
+              console.log('[Selector] 🎯 Handling removeElements');
+              this.handleRemoveElements(request.selector, sendResponse);
+              return true; // Async response
+              
+            case 'removeBlurFilter':
+              console.log('[Selector] 🌀 Handling removeBlurFilter');
+              this.handleRemoveBlurFilter(sendResponse);
+              return true; // Async response
+              
+            case 'clearRemovedElements':
+              console.log('[Selector] 🧹 Handling clearRemovedElements');
+              this.handleClearRemovedElements(sendResponse);
+              return true; // Async response
+              
+            case 'getRemovedElementsCount':
+              console.log('[Selector] 📊 Handling getRemovedElementsCount');
+              this.handleGetRemovedElementsCount(sendResponse);
+              return true; // Async response
+              
+            // List management actions
+            case 'getHiddenElementsList':
+              console.log('[Selector] 📋 Getting hidden elements list');
+              this.handleGetHiddenElementsList(sendResponse);
+              return true; // Async response
+              
+            case 'removeHiddenElement':
+              this.handleRemoveHiddenElement(request.index, sendResponse);
+              return true; // Async response
+              
+            default:
+              console.warn(`[Selector] ❓ Unknown action: ${request.action}`);
+              sendResponse({ success: false, error: 'Unknown action' });
+              break;
+          }
+          
+        } catch (error) {
+          console.error('[Selector] 💥 Error handling message:', error);
+          sendResponse({ success: false, error: error.message });
+        }
+      });
+      
+      console.log('[Selector] ✅ Message listener setup complete');
+      
+    } catch (error) {
+      console.error('[Selector] ❌ Error setting up message listener:', error);
+    }
+  }
+
+  /**
+   * Handle removeElements action
+   * @param {string} selector - The selector to remove
+   * @param {Function} sendResponse - Response callback
+   */
+  async handleRemoveElements(selector, sendResponse) {
+    try {
+      console.log(`[Selector] 🎯 removeElements: "${selector}"`);
+      
+      if (!this.domAttrsRemover) {
+        throw new Error('DomAttrsRemover not initialized');
+      }
+      
+      const result = await this.domAttrsRemover.removeElements(selector);
+      
+      console.log(`[Selector] ✅ removeElements result:`, result);
+      sendResponse({ 
+        success: true, 
+        count: result.count,
+        type: result.type,
+        selector: result.selector
+      });
+      
+    } catch (error) {
+      console.error('[Selector] ❌ Error in removeElements:', error);
+      sendResponse({ 
+        success: false, 
+        error: error.message 
+      });
+    }
+  }
+  
+  /**
+   * Handle removeBlurFilter action
+   * @param {Function} sendResponse - Response callback
+   */
+  async handleRemoveBlurFilter(sendResponse) {
+    try {
+      console.log('[Selector] 🌀 removeBlurFilter called');
+      
+      if (!this.domAttrsRemover) {
+        throw new Error('DomAttrsRemover not initialized');
+      }
+      
+      const result = await this.domAttrsRemover.removeBlurFilter();
+      
+      console.log('[Selector] ✅ removeBlurFilter result:', result);
+      sendResponse({ 
+        success: true, 
+        count: result.count,
+        patterns: result.patterns
+      });
+      
+    } catch (error) {
+      console.error('[Selector] ❌ Error in removeBlurFilter:', error);
+      sendResponse({ 
+        success: false, 
+        error: error.message 
+      });
+    }
+  }
+  
+  /**
+   * Handle clearRemovedElements action
+   * @param {Function} sendResponse - Response callback
+   */
+  async handleClearRemovedElements(sendResponse) {
+    try {
+      console.log('[Selector] 🧹 clearRemovedElements called');
+      
+      if (!this.domAttrsRemover) {
+        throw new Error('DomAttrsRemover not initialized');
+      }
+      
+      const result = await this.domAttrsRemover.clearRemovedElements();
+      
+      console.log('[Selector] ✅ clearRemovedElements result:', result);
+      sendResponse({ 
+        success: true, 
+        clearedCount: result.clearedCount
+      });
+      
+    } catch (error) {
+      console.error('[Selector] ❌ Error in clearRemovedElements:', error);
+      sendResponse({ 
+        success: false, 
+        error: error.message 
+      });
+    }
+  }
+  
+  /**
+   * Handle getRemovedElementsCount action
+   * @param {Function} sendResponse - Response callback
+   */
+  async handleGetRemovedElementsCount(sendResponse) {
+    try {
+      console.log('[Selector] 📊 getRemovedElementsCount called');
+      
+      if (!this.domAttrsRemover) {
+        console.log('[Selector] ⚠️ DomAttrsRemover not initialized, returning 0');
+        sendResponse({ success: true, count: 0 });
+      return;
+    }
+
+      const count = await this.domAttrsRemover.getRemovedElementsCount();
+      
+      console.log(`[Selector] ✅ getRemovedElementsCount result: ${count}`);
+      sendResponse({ 
+        success: true, 
+        count: count
+      });
+      
+    } catch (error) {
+      console.error('[Selector] ❌ Error in getRemovedElementsCount:', error);
+      sendResponse({ 
+        success: false, 
+        error: error.message,
+        count: 0
+      });
+    }
+  }
 }
 
 // Initialize selector when DOM is ready
@@ -1342,11 +1705,11 @@ try {
       }
     });
   } else {
-    try {
-      new ElementSelector();
-    } catch (error) {
-      console.error('Error initializing ElementSelector:', error);
-    }
+      try {
+        new ElementSelector();
+      } catch (error) {
+        console.error('Error initializing ElementSelector:', error);
+      }
   }
 } catch (error) {
   console.error('Critical error in content script:', error);
